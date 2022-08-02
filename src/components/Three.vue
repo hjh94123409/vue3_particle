@@ -10,8 +10,7 @@ const canvasBox = ref(null)
 
 onMounted(() => {
 
-  const $three = new Base3d(canvasBox.value)
-
+  new Base3d(canvasBox.value)
 
 })
 
