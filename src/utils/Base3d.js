@@ -1,10 +1,6 @@
 import * as THREE from "three";
-import {
-    OrbitControls
-} from "three/examples/jsm/controls/OrbitControls";
-import {
-    GLTFLoader
-} from "three/examples/jsm/loaders/GLTFLoader";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import TWEEN from "three-tween";
 // import gsap from 'gsap'
 
@@ -17,12 +13,15 @@ class Base3d {
         this.controls;
         this.axes;
         this.number = 26016;
+        // this.number = 1000;
         this.modelNumber = 3;
         this.current = 0;
         this.bufArrays = [];
         this.vertices = [];
         this.bufferGeometry;
         this.points;
+        this.raycaster;
+        this.mouse;
         this.init();
         this.aniRender();
     }
@@ -30,12 +29,16 @@ class Base3d {
         this.initScene();
         this.initCamera();
         this.initRenderer();
-        this.addAxes();
+        // this.addAxes();
         this.initControls();
-        // this.addBox();
+        this.addBox();
+        this.addSphere();
+        this.addTorus();
         this.initGltf();
         this.initPoint();
+        this.addEvent();
         window.addEventListener("resize", this.windowResize.bind(this));
+        window.addEventListener("mousedown", this.mouseDown.bind(this));
     }
     initScene() {
         this.scene = new THREE.Scene();
@@ -63,9 +66,40 @@ class Base3d {
         const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshBasicMaterial({
             color: 0xff0000,
+            wireframe: true,
         });
         const cube = new THREE.Mesh(geometry, material);
+        cube.scale.set(0.2, 0.2, 0.2);
+        cube.rotation.set(1, 1, 1);
+        cube.position.set(-0.5, 2, 0);
+        cube.name = 'cube'
         this.scene.add(cube);
+    }
+    addSphere() {
+        const geometry = new THREE.SphereGeometry(1, 8, 10);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            wireframe: true,
+        });
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.scale.set(0.2, 0.2, 0.2);
+        sphere.rotation.set(1, 0, 1);
+        sphere.position.set(0, 2, 0);
+        sphere.name = 'sphere'
+        this.scene.add(sphere);
+    }
+    addTorus() {
+        const torusgeo = new THREE.TorusGeometry(3, 1, 5, 20, Math.PI * 2);
+        const torusmaterial = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            wireframe: true,
+        });
+        const torus = new THREE.Mesh(torusgeo, torusmaterial);
+        torus.scale.set(0.05, 0.05, 0.05);
+        torus.rotation.set(1, 1, 0);
+        torus.position.set(0.5, 2, 0);
+        torus.name = 'torus'
+        this.scene.add(torus);
     }
     addAxes() {
         this.axes = new THREE.AxesHelper(50);
@@ -78,7 +112,6 @@ class Base3d {
         );
     }
     aniRender() {
-
         this.points.rotation.x += 0.0003;
         this.points.rotation.y += 0.001;
         this.points.rotation.z += 0.002;
@@ -116,9 +149,7 @@ class Base3d {
             gltf.scene.traverse((child) => {
                 if (child.isMesh) {
                     child.geometry.scale(0.5, 0.5, 0.5);
-                    const {
-                        array
-                    } = child.geometry.attributes.position;
+                    const { array } = child.geometry.attributes.position;
                     this.bufArrays.push(array);
                 }
             });
@@ -127,9 +158,7 @@ class Base3d {
             gltf.scene.traverse((child) => {
                 if (child.isMesh) {
                     child.geometry.scale(0.5, 0.5, 0.5);
-                    const {
-                        array
-                    } = child.geometry.attributes.position;
+                    const { array } = child.geometry.attributes.position;
                     this.bufArrays.push(array);
                 }
             });
@@ -138,9 +167,7 @@ class Base3d {
             gltf.scene.traverse((child) => {
                 if (child.isMesh) {
                     child.geometry.scale(0.5, 0.5, 0.5);
-                    const {
-                        array
-                    } = child.geometry.attributes.position;
+                    const { array } = child.geometry.attributes.position;
                     this.bufArrays.push(array);
                 }
             });
@@ -151,7 +178,7 @@ class Base3d {
         };
         manager.onLoad = () => {
             // console.log('load', this.bufArrays);
-            this.transitionPoint();
+            this.transitionPoint(0);
         };
         manager.onError = (url) => {
             console.wran(url);
@@ -163,13 +190,13 @@ class Base3d {
         this.bufferGeometry.tween = [];
         // console.log(bufferGeometry);
         for (let i = 0; i < this.number; i++) {
-            const position = THREE.MathUtils.randFloat(-4, 4)
+            const position = THREE.MathUtils.randFloat(-4, 4);
             this.bufferGeometry.tween.push(
                 new TWEEN.Tween({
-                    position
+                    position,
                 }).easing(TWEEN.Easing.Exponential.In)
             );
-            this.vertices.push(position)
+            this.vertices.push(position);
         }
 
         this.bufferGeometry.setAttribute(
@@ -189,10 +216,11 @@ class Base3d {
             })
         );
 
-        this.scene.add(this.points)
+        this.scene.add(this.points);
     }
 
-    transitionPoint() {
+    transitionPoint(number) {
+        this.current = number
         for (let i = 0, j = 0; i < this.number; i++, j++) {
             const item = this.bufferGeometry.tween[i];
 
@@ -200,28 +228,69 @@ class Base3d {
                 j = 0;
             }
 
-            const _position = this.bufArrays[this.current][j]
+            const _position = this.bufArrays[this.current][j];
 
-            const self = this
-            item.to({
-                    position: _position
+            const self = this;
+            item.to(
+                {
+                    position: _position,
                 },
-                THREE.MathUtils.randFloat(1000, 4000)
-            ).onUpdate(
-                function () {
-                    self.bufferGeometry.attributes.position.array[i] = this.position;
+                THREE.MathUtils.randFloat(500, 2000)
+            )
+                .onUpdate(function () {
+                    self.bufferGeometry.attributes.position.array[i] =
+                        this.position;
                     self.bufferGeometry.attributes.position.needsUpdate = true;
-                }
-
-            ).start()
+                })
+                .start();
         }
 
-        setTimeout(() => {
-            this.transitionPoint()
-        }, 6000);
+        // setTimeout(() => {
+        //     this.transitionPoint();
+        // }, 6000);
 
-        this.current = (this.current + 1) % this.modelNumber;
+        // this.current = (this.current + 1) % this.modelNumber;
+    }
 
+    addEvent() {
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+    }
+    mouseDown(e) {
+        this.mouse.x =
+            (e.clientX / this.renderer.domElement.clientWidth) * 2 - 1;
+        this.mouse.y =
+            -((e.clientY / this.renderer.domElement.clientHeight) * 2) + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        const interMesh = []
+
+        this.scene.children.forEach((item, index) => {
+            // console.log(item);
+            if (item.isMesh) { 
+                interMesh.push(item)
+            }
+        })
+
+        const intersects = this.raycaster.intersectObjects(interMesh);
+
+        if (intersects.length) {
+            
+            switch (intersects[0].object.name) {
+                case 'cube':
+                    this.transitionPoint(0);
+                    break;
+                case 'sphere':
+                    this.transitionPoint(1);
+                    break;
+                case 'torus':
+                    this.transitionPoint(2);
+                    break;
+                default:
+                    this.transitionPoint(0);
+                    break;
+            }
+        }
     }
 }
 
